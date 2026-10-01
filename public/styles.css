@@ -309,6 +309,82 @@ main {
   border-radius: 8px;
 }
 
+.notice {
+  margin-top: 10px;
+  border-radius: 6px;
+  padding: 9px 11px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.notice.conflict {
+  background: rgba(163, 92, 0, .1);
+  color: var(--warn);
+}
+
+.notice.invalid {
+  background: rgba(161, 61, 61, .1);
+  color: var(--bad);
+}
+
+.notice.snapshot {
+  background: rgba(17, 97, 92, .08);
+  color: var(--accent);
+}
+
+.occ {
+  margin-top: 10px;
+  border-top: 1px dashed var(--line);
+  padding-top: 10px;
+}
+
+.occ h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.occ-rows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.occ-chip {
+  background: #f7f3eb;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.batches {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.batches th,
+.batches td {
+  text-align: left;
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.batches th {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.batch-result {
+  color: var(--muted);
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
 .toast {
   position: fixed;
   right: 20px;

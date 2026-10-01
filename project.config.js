@@ -1,14 +1,20 @@
 module.exports = {
   port: 3912,
   title: '钟乳石洞穴微环境巡测',
-  lede: '围绕洞穴、分区、样点和巡测路线记录微环境数据，发现异常后生成复查闭环。',
+  lede: '围绕洞穴、分区、样点和巡测路线记录微环境数据，发现异常后生成复查闭环。每时段限两台设备进洞，排期冲突保留草稿，基准变更自动失效重算。',
   tones: {
     '常规观察': 'ok',
     '正常': 'ok',
     '已复查': 'ok',
+    '已排期': 'ok',
     '重点保护': 'warn',
+    '草稿': 'warn',
     '异常待复查': 'bad',
-    '暂停开放': 'bad'
+    '已失效': 'bad',
+    '暂停开放': 'bad',
+    '失败': 'bad',
+    '已提交': 'ok',
+    '处理中': 'warn'
   },
   collections: {
     sites: { label: '样点档案' },
@@ -18,6 +24,8 @@ module.exports = {
     { label: '样点', collection: 'sites' },
     { label: '重点保护', collection: 'sites', filter: { field: 'protectedStatus', value: '重点保护' } },
     { label: '巡测记录', collection: 'surveys' },
+    { label: '排期中', collection: 'surveys', filter: { field: 'status', value: '已排期' } },
+    { label: '冲突草稿', collection: 'surveys', filter: { field: 'status', value: '草稿' } },
     { label: '待复查', collection: 'surveys', filter: { field: 'status', value: '异常待复查' } }
   ],
   views: [
@@ -41,6 +49,7 @@ module.exports = {
       statusOptions: ['常规观察', '重点保护', '暂停开放'],
       titleFields: ['pointCode', 'zone'],
       summaryFields: ['note'],
+      occupancy: { collection: 'surveys', foreignKey: 'siteId', statuses: ['已排期'], fields: ['date', 'slot', 'surveyor', 'equipment'] },
       detailFields: [
         { label: '洞穴', name: 'cave' },
         { label: '巡测路线', name: 'route' },
@@ -63,26 +72,31 @@ module.exports = {
       id: 'surveys',
       label: '巡测记录',
       collection: 'surveys',
+      batch: true,
       formTitle: '登记巡测',
       listTitle: '巡测历史',
       submitLabel: '保存巡测',
-      searchPlaceholder: '搜索人员、干扰痕迹、照片',
-      searchFields: ['surveyor', 'disturbance', 'photoUrl'],
+      searchPlaceholder: '搜索人员、时段、设备、干扰痕迹',
+      searchFields: ['surveyor', 'date', 'slot', 'equipment', 'disturbance', 'photoUrl'],
       statusField: 'status',
-      statusOptions: ['正常', '异常待复查', '已复查'],
+      statusOptions: ['已排期', '草稿', '已失效', '正常', '异常待复查', '已复查'],
       titleFields: ['surveyor', 'date'],
       relation: { collection: 'sites', localKey: 'siteId', labelFields: ['cave', 'zone', 'pointCode'] },
       summaryFields: ['disturbance', 'reviewNote'],
       detailFields: [
+        { label: '时段', name: 'slot' },
+        { label: '设备', name: 'equipment' },
         { label: '温度', name: 'temperature' },
         { label: '湿度', name: 'humidity' },
         { label: 'CO2', name: 'co2' }
       ],
-      defaults: { status: '正常', reviewNote: '' },
+      defaults: { status: '已排期', reviewNote: '' },
       fields: [
         { label: '样点', name: 'siteId', type: 'relation', collection: 'sites', labelFields: ['cave', 'zone', 'pointCode'], required: true, wide: true },
         { label: '巡测人员', name: 'surveyor', required: true },
         { label: '日期', name: 'date', type: 'date', required: true },
+        { label: '时段', name: 'slot', type: 'select', options: ['上午', '下午'], required: true },
+        { label: '设备', name: 'equipment', type: 'select', options: ['设备一', '设备二'], required: true },
         { label: '温度', name: 'temperature', type: 'number', required: true },
         { label: '湿度', name: 'humidity', type: 'number', required: true },
         { label: 'CO2', name: 'co2', type: 'number', required: true },
@@ -90,6 +104,11 @@ module.exports = {
         { label: '照片链接', name: 'photoUrl' },
         { label: '游客干扰痕迹', name: 'disturbance', type: 'textarea', wide: true }
       ]
+    },
+    {
+      id: 'batches',
+      label: '批次记录',
+      type: 'batches'
     }
   ],
   actions: [

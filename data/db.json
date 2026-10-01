@@ -17,6 +17,24 @@
       "history": [
         { "at": "2026-06-14T08:00:00.000Z", "action": "创建", "note": "样点建档" }
       ]
+    },
+    {
+      "id": "site-seed-2",
+      "cave": "北麓三号洞",
+      "zone": "大厅区",
+      "pointCode": "D-12",
+      "route": "东线巡测",
+      "sensitivity": "中",
+      "protectedStatus": "常规观察",
+      "baselineTemp": 15.8,
+      "baselineHumidity": 88,
+      "baselineCo2": 620,
+      "note": "洞厅开阔，设备架设点固定",
+      "createdAt": "2026-06-15T08:00:00.000Z",
+      "updatedAt": "2026-06-15T08:00:00.000Z",
+      "history": [
+        { "at": "2026-06-15T08:00:00.000Z", "action": "创建", "note": "样点建档" }
+      ]
     }
   ],
   "surveys": [
@@ -25,6 +43,8 @@
       "siteId": "site-seed-1",
       "surveyor": "沈宁",
       "date": "2026-06-18",
+      "slot": "上午",
+      "equipment": "设备一",
       "temperature": 17.4,
       "humidity": 88,
       "co2": 920,
@@ -33,11 +53,75 @@
       "photoUrl": "",
       "status": "异常待复查",
       "reviewNote": "",
+      "snapshot": {
+        "baselineTemp": 16.2,
+        "baselineHumidity": 92,
+        "baselineCo2": 680,
+        "protectedStatus": "重点保护",
+        "capturedAt": "2026-06-18T10:00:00.000Z"
+      },
       "createdAt": "2026-06-18T10:00:00.000Z",
       "updatedAt": "2026-06-18T10:00:00.000Z",
       "history": [
         { "at": "2026-06-18T10:00:00.000Z", "action": "创建", "note": "CO2升高并有干扰痕迹" }
       ]
+    },
+    {
+      "id": "survey-seed-2",
+      "siteId": "site-seed-2",
+      "surveyor": "李蔓",
+      "date": "2026-10-02",
+      "slot": "上午",
+      "equipment": "设备一",
+      "temperature": null,
+      "humidity": null,
+      "co2": null,
+      "dripRate": null,
+      "disturbance": "",
+      "photoUrl": "",
+      "status": "已排期",
+      "reviewNote": "",
+      "snapshot": {
+        "baselineTemp": 15.8,
+        "baselineHumidity": 88,
+        "baselineCo2": 620,
+        "protectedStatus": "常规观察",
+        "capturedAt": "2026-06-15T08:00:00.000Z"
+      },
+      "createdAt": "2026-09-28T09:00:00.000Z",
+      "updatedAt": "2026-09-28T09:00:00.000Z",
+      "history": [
+        { "at": "2026-09-28T09:00:00.000Z", "action": "创建", "note": "排期登记" },
+        { "at": "2026-09-28T09:00:00.000Z", "action": "排期确认", "note": "2026-10-02 上午 设备一" }
+      ]
+    },
+    {
+      "id": "survey-seed-3",
+      "siteId": "site-seed-2",
+      "surveyor": "李蔓",
+      "date": "2026-10-02",
+      "slot": "上午",
+      "equipment": "设备二",
+      "temperature": null,
+      "humidity": null,
+      "co2": null,
+      "dripRate": null,
+      "disturbance": "",
+      "photoUrl": "",
+      "status": "草稿",
+      "reviewNote": "",
+      "conflict": {
+        "at": "2026-09-28T09:05:00.000Z",
+        "types": ["surveyor"],
+        "messages": ["2026-10-02 上午：队员 李蔓 已有巡测任务"]
+      },
+      "createdAt": "2026-09-28T09:05:00.000Z",
+      "updatedAt": "2026-09-28T09:05:00.000Z",
+      "history": [
+        { "at": "2026-09-28T09:05:00.000Z", "action": "创建", "note": "排期登记" },
+        { "at": "2026-09-28T09:05:00.000Z", "action": "冲突草稿", "note": "2026-10-02 上午：队员 李蔓 已有巡测任务" }
+      ]
     }
-  ]
+  ],
+  "batches": []
 }

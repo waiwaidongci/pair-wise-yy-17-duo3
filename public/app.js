@@ -100,12 +100,39 @@ function historyHtml(item) {
   `).join('')}</div>`;
 }
 
+function sortNewest(a, b) {
+  return new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0);
+}
+
 function values(form, view) {
   const payload = Object.fromEntries(new FormData(form).entries());
   for (const field of view.fields) {
     if (field.type === 'number') payload[field.name] = Number(payload[field.name] || 0);
   }
   return { ...view.defaults, ...payload };
+}
+
+// 批次提交：同一批次号幂等，冲突保留草稿，失败后提示去批次记录重试
+async function submitBatch(form, view) {
+  const batchId = `batch-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+  const payload = values(form, view);
+  try {
+    const res = await api('/api/batches', {
+      method: 'POST',
+      body: JSON.stringify({ batchId, items: [{ collection: view.collection, op: 'create', payload }] })
+    });
+    form.reset();
+    await load();
+    const drafts = (res.results || []).filter((entry) => entry.status === 'draft');
+    if (drafts.length) {
+      toast(`时段冲突，已保留草稿：${drafts[0].message || ''}`);
+    } else {
+      toast('已保存');
+    }
+  } catch (error) {
+    await load();
+    toast(`写入失败：${error.message}，可在批次记录中按批次号重试`);
+  }
 }
 
 function renderTabs() {
@@ -129,6 +156,33 @@ function renderStats() {
   }).join('')}</div>`;
 }
 
+function surveyExtras(item) {
+  const bits = [];
+  if (item.status === '草稿' && item.conflict) {
+    bits.push(`<div class="notice conflict">冲突未占用：${escapeHtml((item.conflict.messages || []).join('；'))}</div>`);
+  }
+  if (item.status === '已失效') {
+    bits.push(`<div class="notice invalid">已失效：${escapeHtml(item.invalidReason || '基准变更')}，已按新基准重算${item.expectedBaseline ? `（基准CO2 ${escapeHtml(item.expectedBaseline.baselineCo2)}）` : ''}</div>`);
+  }
+  if (item.snapshot) {
+    bits.push(`<div class="notice snapshot">现场快照：基准CO2 ${escapeHtml(item.snapshot.baselineCo2)} / 保护等级 ${escapeHtml(item.snapshot.protectedStatus)}（${fmtDate(item.snapshot.capturedAt)}）</div>`);
+  }
+  return bits.join('');
+}
+
+function occupancyHtml(item, view) {
+  if (!view.occupancy) return '';
+  const occ = view.occupancy;
+  const rows = (state.db[occ.collection] || [])
+    .filter((entry) => entry[occ.foreignKey] === item.id && occ.statuses.includes(entry.status))
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.slot).localeCompare(String(b.slot))
+      || String(a.surveyor).localeCompare(String(b.surveyor)));
+  if (!rows.length) return '<div class="occ empty">近期无排期占用</div>';
+  return `<div class="occ"><h4>占用排期（${rows.length}）</h4><div class="occ-rows">${rows.map((row) =>
+    `<span class="occ-chip">${occ.fields.map((field) => escapeHtml(row[field] || '-')).join(' · ')}</span>`
+  ).join('')}</div></div>`;
+}
+
 function renderCard(item, collection, view) {
   const title = view.titleFields.map((field) => item[field]).filter(Boolean).join(' / ') || item.id;
   const statusValue = item[view.statusField];
@@ -139,6 +193,7 @@ function renderCard(item, collection, view) {
     return `<div>${escapeHtml(field.label)}<br><strong>${escapeHtml(value || '-')}</strong></div>`;
   }).join('');
   const summary = (view.summaryFields || []).map((field) => item[field]).filter(Boolean).join(' · ');
+  const extras = collection === 'surveys' ? surveyExtras(item) : occupancyHtml(item, view);
   const actions = state.config.actions
     .filter((action) => action.collection === collection)
     .map((action) => `<button class="${action.danger ? 'danger' : 'ghost'}" data-action="${action.id}" data-id="${item.id}">${escapeHtml(action.label)}</button>`)
@@ -148,6 +203,7 @@ function renderCard(item, collection, view) {
     ${relation}
     ${summary ? `<p>${escapeHtml(summary)}</p>` : ''}
     ${details ? `<div class="detail">${details}</div>` : ''}
+    ${extras}
     ${actions ? `<div class="actions">${actions}</div>` : ''}
     ${historyHtml(item)}
   </article>`;
@@ -203,11 +259,42 @@ function renderCrudView(view) {
   </section>`;
 }
 
+function renderBatchesView(view) {
+  const batches = [...(state.db.batches || [])].sort(sortNewest);
+  return `<section class="view" id="${view.id}">
+    ${renderStats()}
+    <div class="panel">
+      <h2>批次记录</h2>
+      ${batches.length ? `<table class="batches"><thead><tr><th>批次号</th><th>状态</th><th>条目</th><th>结果</th><th>更新时间</th><th></th></tr></thead><tbody>
+        ${batches.map((batch) => {
+          const applied = batch.results.filter((entry) => entry.status === 'applied').length;
+          const drafts = batch.results.filter((entry) => entry.status === 'draft').length;
+          const errors = batch.results.filter((entry) => entry.status === 'error').length;
+          const statusLabel = batch.status === 'committed' ? '已提交' : batch.status === 'failed' ? '失败' : '处理中';
+          const statusTone = batch.status === 'committed' ? 'ok' : batch.status === 'failed' ? 'bad' : 'warn';
+          return `<tr>
+            <td class="mono">${escapeHtml(batch.id)}</td>
+            <td>${pill(statusLabel, statusTone)}</td>
+            <td>${batch.items.length}</td>
+            <td class="batch-result">应用 ${applied} · 草稿 ${drafts}${errors ? ` · 失败 ${errors}` : ''}</td>
+            <td>${fmtDate(batch.updatedAt)}</td>
+            <td>${batch.status === 'failed' || batch.status === 'pending' ? `<button class="ghost" data-retry="${escapeHtml(batch.id)}">重试</button>` : ''}</td>
+          </tr>`;
+        }).join('')}
+      </tbody></table>` : '<div class="empty">暂无批次</div>'}
+    </div>
+  </section>`;
+}
+
 function render() {
   $('#title').textContent = state.config.title;
   document.title = state.config.title;
   $('#lede').textContent = state.config.lede;
-  $('#main').innerHTML = state.config.views.map((view) => view.type === 'dashboard' ? renderDashboardView(view) : renderCrudView(view)).join('');
+  $('#main').innerHTML = state.config.views.map((view) => {
+    if (view.type === 'dashboard') return renderDashboardView(view);
+    if (view.type === 'batches') return renderBatchesView(view);
+    return renderCrudView(view);
+  }).join('');
   setTab(state.activeTab || state.config.views[0].id);
 }
 
@@ -219,12 +306,22 @@ async function load() {
 document.addEventListener('click', async (event) => {
   const tab = event.target.closest('.tab');
   const action = event.target.closest('[data-action]');
+  const retry = event.target.closest('[data-retry]');
   if (tab) setTab(tab.dataset.tab);
   if (action) {
     try {
       await api(`/api/action/${action.dataset.action}/${action.dataset.id}`, { method: 'POST' });
       await load();
       toast('已更新');
+    } catch (error) {
+      toast(error.message);
+    }
+  }
+  if (retry) {
+    try {
+      const res = await api(`/api/batches/${retry.dataset.retry}/retry`, { method: 'POST' });
+      await load();
+      toast(res.status === 'committed' ? '批次已重试' : '批次仍有失败条目');
     } catch (error) {
       toast(error.message);
     }
@@ -241,6 +338,7 @@ document.addEventListener('submit', async (event) => {
   if (!form) return;
   event.preventDefault();
   const view = state.config.views.find((entry) => entry.id === form.dataset.view);
+  if (view.batch) return submitBatch(form, view);
   await api(`/api/${form.dataset.create}`, { method: 'POST', body: JSON.stringify(values(form, view)) });
   form.reset();
   await load();
